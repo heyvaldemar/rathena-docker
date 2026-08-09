@@ -79,8 +79,12 @@ button:hover{background:#F5B8D0}
 .msg{padding:.7rem .8rem;border-radius:.4rem;margin:0 0 1.2rem;font-size:.92rem}
 .err{background:rgba(208,119,112,.15);border-left:3px solid #D08770}
 .ok{background:rgba(104,190,141,.15);border-left:3px solid #68BE8D}
-footer{margin-top:1.4rem;font-size:.82rem;color:#9C8AAE}
-footer a{color:#E16B8C}
+span.hint{display:block;font-size:.78rem;color:#9C8AAE;margin:0 0 .4rem;line-height:1.45}
+span.hint code{color:#F5B8D0}
+footer{margin-top:1.8rem;padding-top:1rem;border-top:1px solid #2c2140;
+ font-size:.82rem;color:#9C8AAE}
+footer a{color:#E16B8C;text-decoration:none}
+footer a:hover{text-decoration:underline}
 """
 
 PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -91,18 +95,19 @@ PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <p class="sub">Ragnarok has no way to do this in the game, so it happens here.</p>
 %s
 <form method="post" autocomplete="off">
-<label><span class="l">Account name</span><input name="account" required maxlength="23"
- autocapitalize="none" spellcheck="false"></label>
+<label><span class="l">Account name</span>
+ <span class="hint">The name you log in with — without the <code>_M</code> you added when
+ you first signed up.</span>
+ <input name="account" required autocapitalize="none" spellcheck="false"></label>
 <label><span class="l">Current password</span><input name="old" type="password" required></label>
-<label><span class="l">New password</span><input name="new" type="password" required
- minlength="%d" maxlength="%d"></label>
-<label><span class="l">New password again</span><input name="new2" type="password" required
- minlength="%d" maxlength="%d"></label>
+<label><span class="l">New password</span>
+ <span class="hint">%d to %d characters. The upper limit is the game client's, not ours —
+ it cannot send a longer one.</span>
+ <input name="new" type="password" required></label>
+<label><span class="l">New password again</span><input name="new2" type="password" required></label>
 <button type="submit">Change it</button>
 </form>
-<footer>Between %d and %d characters. The account name is the one you log in with —
-without the <code>_M</code> you used when you first signed up.
-%s</footer>
+%s
 </main></body></html>"""
 
 
@@ -176,10 +181,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    # RULES BEFORE THE FIELD, NOT AFTER IT. Under the button they are read only
+    # by someone already looking for why something failed. And the fields carried
+    # maxlength, so a longer password was SILENTLY CUT and accepted — someone
+    # typing thirty characters got twenty-three, with nothing said. A form that
+    # quietly edits what you typed is worse than one that refuses it, so the
+    # limit is stated up front and enforced by the server alone.
     def _page(self, code=200, msg=""):
-        site = '<br><a href="%s">%s</a>' % (SITE, SITE) if SITE else ""
-        self._send(code, PAGE % (CSS, SHARD, SHARD, msg, MIN_LEN, MAX_LEN,
-                                 MIN_LEN, MAX_LEN, MIN_LEN, MAX_LEN, site))
+        foot = ('<footer><a href="%s">%s</a></footer>' % (SITE, SITE)) if SITE else ""
+        self._send(code, PAGE % (SHARD, CSS, SHARD, msg, MIN_LEN, MAX_LEN, foot))
 
     def do_GET(self):
         if self.path.rstrip("/") in ("", "/health"):
