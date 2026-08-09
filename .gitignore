@@ -1,0 +1,11 @@
+# Secrets and rendered configuration
+.env
+conf-import/
+
+# Runtime state
+data/
+logs/
+secrets/
+
+__pycache__/
+*.pyc

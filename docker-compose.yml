@@ -1,0 +1,149 @@
+# rAthena — login, char and map servers, their database, and a password page.
+#
+# The three servers are one program split three ways and they must agree about
+# each other's addresses, so they are configured together from .env by
+# render-conf.sh rather than by editing four files consistently by hand.
+#
+# NOTHING PUBLISHES THE DATABASE. mariadb is reachable only on this compose
+# network, by the name `db`. rAthena's own tools/docker/ publishes 3306 to the
+# host with the password `ragnarok`; that is fine for a laptop and wrong for
+# anything reachable from outside.
+
+services:
+  db:
+    image: ${RA_DB_IMAGE_TAG}
+    container_name: ra-db
+    command: ["--skip-name-resolve"]
+    environment:
+      MARIADB_DATABASE: ${RA_DB_NAME}
+      MARIADB_USER: ${RA_DB_USER}
+      MARIADB_PASSWORD: ${RA_DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${RA_DB_ROOT_PASSWORD}
+      TZ: ${RA_TIMEZONE}
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      # The schema is loaded once, on the first start, from the image's own
+      # sql-files — see the README. Put them here to have it done for you.
+      - ./data/sql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+
+  login:
+    image: ${RA_IMAGE_TAG}
+    container_name: ra-login
+    build: .
+    command: ["./login-server"]
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      TZ: ${RA_TIMEZONE}
+    volumes:
+      - ./conf-import:/rathena/conf/import:ro
+      - ./logs:/rathena/log
+    ports: ["6900:6900"]
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -ltn | grep -q :6900"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+
+  char:
+    image: ${RA_IMAGE_TAG}
+    container_name: ra-char
+    command: ["./char-server"]
+    depends_on:
+      login: { condition: service_healthy }
+    environment:
+      TZ: ${RA_TIMEZONE}
+    volumes:
+      - ./conf-import:/rathena/conf/import:ro
+      - ./logs:/rathena/log
+    ports: ["6121:6121"]
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -ltn | grep -q :6121"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+
+  map:
+    image: ${RA_IMAGE_TAG}
+    container_name: ra-map
+    command: ["./map-server"]
+    depends_on:
+      char: { condition: service_healthy }
+    environment:
+      TZ: ${RA_TIMEZONE}
+    volumes:
+      - ./conf-import:/rathena/conf/import:ro
+      - ./logs:/rathena/log
+    ports: ["5121:5121"]
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -ltn | grep -q :5121"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+
+  # Optional. Ragnarok has no in-game password command — all 314 atcommands were
+  # checked — so without something like this, players cannot change a password at
+  # all and every reset goes through you. See webpw/app.py for why this is not
+  # FluxCP.
+  webpw:
+    image: ${RA_PW_IMAGE_TAG}
+    container_name: ra-pw
+    build: ./webpw
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      RA_DB_HOST: db
+      RA_DB_USER: ${RA_DB_USER}
+      RA_DB_PASSWORD: ${RA_DB_PASSWORD}
+      RA_DB_NAME: ${RA_DB_NAME}
+      SHARD_NAME: ${RA_SERVER_NAME}
+      SITE_URL: ${RA_SITE_URL}
+      MIN_PASSWORD_LENGTH: ${RA_PW_MIN_LENGTH}
+      RATE_MAX: ${RA_PW_RATE_MAX}
+      RATE_WINDOW_SECONDS: ${RA_PW_RATE_WINDOW}
+      TZ: ${RA_TIMEZONE}
+    # Bound to localhost. Put a reverse proxy or a tunnel in front of it — this
+    # page takes passwords, so it has no business being served over plain HTTP.
+    ports: ["127.0.0.1:8090:8090"]
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8090/health',timeout=5)\""]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
