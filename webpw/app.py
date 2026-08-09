@@ -85,7 +85,22 @@ footer{margin-top:1.8rem;padding-top:1rem;border-top:1px solid #2c2140;
  font-size:.82rem;color:#9C8AAE}
 footer a{color:#E16B8C;text-decoration:none}
 footer a:hover{text-decoration:underline}
+p.again{margin:1.6rem 0 0}
+p.again a{color:#E16B8C;text-decoration:none;font-size:.9rem}
+p.again a:hover{text-decoration:underline}
 """
+
+DONE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>%s — password changed</title><style>%s</style></head><body><main>
+<h1>Your password is changed</h1>
+<p class="sub">Log in to %s with the new one. The old password no longer works.</p>
+<p class="msg ok">If you are not sure it went through: it did — this page is only
+shown after a successful change.</p>
+<p class="again"><a href="/">Change it again</a></p>
+%s
+</main></body></html>"""
 
 PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -244,8 +259,16 @@ class Handler(BaseHTTPRequestHandler):
         # written anywhere, which is the mistake ModernUO's own flow makes when
         # it drops a desired password into a support ticket.
         print("%s %s from %s" % ("changed" if ok else "refused", acct or "-", ip), flush=True)
-        self._page(200 if ok else 400,
-                   "<p class='msg %s'>%s</p>" % ("ok" if ok else "err", html.escape(msg)))
+        # A SUCCESS PAGE WITH THE FORM STILL ON IT INVITES A SECOND ATTEMPT, and
+        # that attempt fails: the "current password" the visitor remembers is the
+        # one they have just replaced. Observed 32 seconds after a successful
+        # change, and it read as the form being broken rather than as having
+        # worked. On success the form is gone and the page says so plainly.
+        if ok:
+            foot = ('<footer><a href="%s">%s</a></footer>' % (SITE, SITE)) if SITE else ""
+            self._send(200, DONE % (SHARD, CSS, SHARD, foot))
+        else:
+            self._page(400, "<p class='msg err'>%s</p>" % html.escape(msg))
 
     def log_message(self, *a):
         pass
