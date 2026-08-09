@@ -163,6 +163,17 @@ docker compose up -d webpw
 
 It binds `127.0.0.1:8090`. Put a reverse proxy or tunnel in front of it: the page takes passwords and has no business on plain HTTP.
 
+## tools/set-password.sh
+
+The web page needs the current password, which is no help when nobody knows it
+any more. This sets one from the host — one parameterised `UPDATE`, the new
+password written to a mode-600 file rather than printed, and the result checked
+by performing a real login rather than assuming the write took.
+
+```bash
+tools/set-password.sh someaccount
+```
+
 ## tools/grf.py
 
 A minimal reader for Ragnarok's GRF archives — enough to list entries and pull one out.
