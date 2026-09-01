@@ -105,6 +105,11 @@ jobs:
               .env.example > .env
           echo "Generated ephemeral .env for CI run"
 
+      - name: Render the server configuration from .env
+        run: |
+          chmod +x render-conf.sh
+          ./render-conf.sh
+
       - name: Build the rAthena and password-page images
         run: docker compose build
 
