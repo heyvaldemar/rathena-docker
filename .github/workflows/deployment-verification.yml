@@ -122,10 +122,13 @@ jobs:
           docker compose up -d db
           # shellcheck disable=SC2016
           timeout 5m bash -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" ra-db)" = "healthy" ]; do sleep 5; done'
-          img="$(docker compose config --images login | head -1)"
-          cid="$(docker create "$img")"
-          docker cp "$cid:/rathena/sql-files" ./sqlfiles
-          docker rm -f "$cid" >/dev/null
+          # Extract the schema through the same service definition compose
+          # will run — no image-name indirection, and a visible listing if
+          # the files are ever missing from the image.
+          docker compose run --rm --no-deps --entrypoint /bin/sh login \
+            -c 'tar -C /rathena -cf - sql-files' > sqlfiles.tar \
+            || { docker compose run --rm --no-deps --entrypoint /bin/sh login -c 'ls -la /rathena'; exit 1; }
+          mkdir -p sqlfiles && tar -xf sqlfiles.tar -C sqlfiles --strip-components=1
           docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/main.sql
           docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/logs.sql
           echo "Schema loaded"
