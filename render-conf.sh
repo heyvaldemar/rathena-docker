@@ -17,7 +17,10 @@
 # from .env at any time by running this script.
 set -euo pipefail
 cd "$(dirname "$0")"
-set -a; . ./.env; set +a
+set -a
+# shellcheck source=/dev/null
+. ./.env
+set +a
 umask 077
 mkdir -p conf-import
 
@@ -134,7 +137,7 @@ item_rate_mvp: ${RA_CARD_RATE}
 EOF
 
 chmod 600 conf-import/*.txt
-echo "rendered $(ls conf-import | wc -l) files into conf-import/ from .env"
+echo "rendered $(find conf-import -type f | wc -l) files into conf-import/ from .env"
 
 # rAthena looks for these two optional imports and logs an Error when they are
 # absent. They are legitimately empty here — but an error line that is always

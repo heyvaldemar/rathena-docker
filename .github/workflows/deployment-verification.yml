@@ -1,0 +1,137 @@
+name: Deployment Verification
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Weekly rebuild to catch upstream drift.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: deployment-verification-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Authenticated requests avoid the anonymous API rate limit that shared
+  # GitHub runners regularly hit (api.github.com answers 403 otherwise).
+  GH_API_TOKEN: ${{ github.token }}
+
+jobs:
+  lint:
+    name: Lint shell scripts, Dockerfiles, and workflow YAML
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: ShellCheck
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt \
+            koalaman/shellcheck-alpine:stable \
+            shellcheck render-conf.sh tools/set-password.sh
+
+      - name: hadolint (Dockerfile linting)
+        run: |
+          docker run --rm -i -v "$PWD/.hadolint.yaml:/.hadolint.yaml:ro" hadolint/hadolint < Dockerfile
+          docker run --rm -i -v "$PWD/.hadolint.yaml:/.hadolint.yaml:ro" hadolint/hadolint < webpw/Dockerfile
+
+      - name: actionlint (GitHub Actions workflow linting)
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt \
+            rhysd/actionlint:1.7.12 \
+            -color
+
+  check-source-freshness:
+    name: Check the pinned rAthena commit for upstream drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Weekly cron + manual dispatch only. rAthena has no releases — the
+    # source moves weekly — so the pinned commit is the version. This job
+    # is the signal to bump RATHENA_REF and rebuild.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compare RATHENA_REF against the upstream master head
+        run: |
+          pinned="$(grep -oE '^ARG RATHENA_REF=[0-9a-f]+' Dockerfile | cut -d= -f2)"
+          latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/rathena/rathena/commits/master | jq -r .sha)"
+          if [ -z "$latest" ] || [ "$latest" = "null" ]; then
+            echo "::error::Could not read the upstream master head"
+            exit 1
+          fi
+          if [ "$pinned" != "$latest" ]; then
+            behind="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" "https://api.github.com/repos/rathena/rathena/compare/$pinned...master" | jq -r .ahead_by)"
+            echo "::error::RATHENA_REF is ${behind:-?} commits behind upstream master (pinned ${pinned}, head ${latest}) — bump and rebuild"
+            exit 1
+          fi
+          echo "RATHENA_REF matches the upstream master head"
+
+  build-and-test:
+    name: Build the images + login/char/map/webpw smoke
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 40
+    permissions:
+      contents: read
+
+    env:
+      COMPOSE_PROJECT_NAME: rathena
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Generate test .env with ephemeral credentials
+        run: |
+          sed -e "s/^RA_DB_PASSWORD=.*/RA_DB_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)/" \
+              -e "s/^RA_DB_ROOT_PASSWORD=.*/RA_DB_ROOT_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)/" \
+              -e "s/^RA_INTER_PASS=.*/RA_INTER_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 20)/" \
+              -e "s/^RA_PUBLIC_IP=.*/RA_PUBLIC_IP=127.0.0.1/" \
+              .env.example > .env
+          echo "Generated ephemeral .env for CI run"
+
+      - name: Build the rAthena and password-page images
+        run: docker compose build
+
+      - name: Start up services using Docker Compose
+        run: docker compose up -d
+
+      - name: Wait for all three servers to report healthy
+        # The healthchecks assert each server is listening (6900/6121/5121);
+        # map-server healthy means it connected to char, char to login, and
+        # login to the database — the full chain.
+        run: |
+          # shellcheck disable=SC2016
+          timeout 10m bash -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" ra-login ra-char ra-map | sort -u)" = "healthy" ]; do
+            echo "login=$(docker inspect -f "{{.State.Health.Status}}" ra-login) char=$(docker inspect -f "{{.State.Health.Status}}" ra-char) map=$(docker inspect -f "{{.State.Health.Status}}" ra-map)"
+            sleep 15
+          done'
+          docker logs ra-map 2>&1 | tail -3
+
+      - name: Verify the password page answers
+        run: |
+          timeout 2m bash -c 'while ! curl -fs -o /dev/null http://127.0.0.1:8090/; do sleep 5; done'
+          curl -fs -o /dev/null -w "webpw: %{http_code}\n" http://127.0.0.1:8090/
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Shutdown Docker Compose services
+        if: always()
+        run: docker compose down

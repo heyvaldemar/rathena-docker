@@ -21,7 +21,10 @@
 # screenshots.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-set -a; . ./.env; set +a
+set -a
+# shellcheck source=/dev/null
+. ./.env
+set +a
 
 ACCT=${1:?usage: set-password.sh <account>}
 OUT=secrets/ro-$ACCT-password
@@ -34,7 +37,7 @@ OUT=secrets/ro-$ACCT-password
 # pipefail that becomes a silent exit under set -e.
 NEW=$(head -c 64 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | cut -c1-16)
 
-docker exec -e A="$ACCT" -e P="$NEW" ${RA_DB_CONTAINER:-ra-db} sh -c '
+docker exec -e A="$ACCT" -e P="$NEW" "${RA_DB_CONTAINER:-ra-db}" sh -c '
   mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" '"$RA_DB_NAME"' \
     -e "UPDATE login SET user_pass = MD5(\"$P\") WHERE userid = \"$A\";
         SELECT ROW_COUNT();"' | tail -1 | {

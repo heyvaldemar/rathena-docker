@@ -1,0 +1,8 @@
+ignored:
+  # Alpine package pins churn with every base bump and add no
+  # reproducibility here: the base image itself is pinned by tag+digest
+  # policy and rebuilt deliberately.
+  - DL3018
+  # The runtime user is created with an explicit numeric uid in the same
+  # layer; the named USER reference is intentional.
+  - DL3066
