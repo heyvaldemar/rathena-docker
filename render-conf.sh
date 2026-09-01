@@ -137,7 +137,6 @@ item_rate_mvp: ${RA_CARD_RATE}
 EOF
 
 chmod 600 conf-import/*.txt
-echo "rendered $(find conf-import -type f | wc -l) files into conf-import/ from .env"
 
 # rAthena looks for these two optional imports and logs an Error when they are
 # absent. They are legitimately empty here — but an error line that is always
@@ -222,3 +221,14 @@ use_dnsbl: yes
 dnsbl_servers: bl.blocklist.de, dnsbl.dronebl.org
 EOF
 chmod 600 conf-import/*.txt
+
+# The servers read these as the unprivileged rathena user inside the
+# container, whose uid does not match the host owner — the rendered
+# copies must be world-readable and the directory traversable, or every
+# config "disappears" (EACCES surfaces as "file not found"). The secrets
+# in here are the same ones .env already holds; protect .env and the
+# host, not these derived copies.
+chmod 755 conf-import
+chmod 644 conf-import/*
+
+echo "rendered $(find conf-import -type f | wc -l) files into conf-import/ from .env"
