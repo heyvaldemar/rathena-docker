@@ -113,6 +113,23 @@ jobs:
       - name: Build the rAthena and password-page images
         run: docker compose build
 
+      - name: Start the database and load the schema
+        # The documented first-start procedure: the schema ships inside the
+        # server image (sql-files/), matched to the binaries, and is loaded
+        # once. The servers crash-loop harmlessly until it exists, so the
+        # database gets the schema before they start.
+        run: |
+          docker compose up -d db
+          # shellcheck disable=SC2016
+          timeout 5m bash -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" ra-db)" = "healthy" ]; do sleep 5; done'
+          img="$(docker compose config --images login | head -1)"
+          cid="$(docker create "$img")"
+          docker cp "$cid:/rathena/sql-files" ./sqlfiles
+          docker rm -f "$cid" >/dev/null
+          docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/main.sql
+          docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/logs.sql
+          echo "Schema loaded"
+
       - name: Start up services using Docker Compose
         run: docker compose up -d
 
