@@ -8,8 +8,8 @@ on:
     branches:
       - main
   schedule:
-    # Weekly rebuild to catch upstream drift.
-    - cron: "0 6 * * 1"
+    # Daily rebuild: security patches should not wait for a weekly slot.
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -56,7 +56,7 @@ jobs:
     name: Check the pinned rAthena commit for upstream drift
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Weekly cron + manual dispatch only. rAthena has no releases — the
+    # Scheduled + manual dispatch only. rAthena has no releases — the
     # source moves weekly — so the pinned commit is the version. This job
     # is the signal to bump RATHENA_REF and rebuild.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
