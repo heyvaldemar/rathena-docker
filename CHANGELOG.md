@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Added
+
+- **A shutdown grace period for the database.** Docker allows ten seconds and
+  then sends SIGKILL. MariaDB has InnoDB to flush on the way out, and a shard
+  database cut off halfway does crash recovery on the next start, with a game
+  world's state behind it.
 
 ## [1.2.0] - 2026-09-05
 

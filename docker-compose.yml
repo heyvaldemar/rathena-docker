@@ -26,6 +26,11 @@ services:
   db:
     image: *mariadb-image
     container_name: ra-db
+    # Docker gives a container ten seconds and then SIGKILL. MariaDB has
+    # InnoDB to flush on the way out, and a shard database cut off halfway
+    # does crash recovery on the next start - with the world state of a game
+    # server behind it. Sixty seconds, overridable in .env.
+    stop_grace_period: ${RA_DB_STOP_GRACE_PERIOD:-60s}
     # Resource limits as .env-overridable defaults (e.g. RA_DB_MEMORY_LIMIT=2g);
     # the override survives every git pull.
     deploy:
