@@ -9,10 +9,33 @@
 # host with the password `ragnarok`; that is fine for a laptop and wrong for
 # anything reachable from outside.
 
+# Image pins live HERE, as interpolation defaults, so `git pull` delivers the
+# combination this repository has tested and nothing has to be set in .env to
+# start. Two of the three are built from this checkout, so their defaults name
+# the local tag `build:` produces; the database is pulled, so it carries a
+# digest.
+#
+# CI (the Trivy scan and the freshness check) reads the pins from these lines:
+# this block is the single source of truth.
+x-images:
+  rathena: &rathena-image ${RA_IMAGE_TAG:-rathena:prere-20200401-a3.24}
+  webpw: &webpw-image ${RA_PW_IMAGE_TAG:-rathena-webpw:1}
+  mariadb: &mariadb-image ${RA_DB_IMAGE_TAG:-mariadb:${RA_DB_IMAGE_VERSION:-11.8@sha256:2439dcd7d14010ecd1ff7a4e1c5abe8e208c34fe35290744deeeaac3569043c3}}
+
 services:
   db:
-    image: ${RA_DB_IMAGE_TAG}
+    image: *mariadb-image
     container_name: ra-db
+    # Resource limits as .env-overridable defaults (e.g. RA_DB_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${RA_DB_MEMORY_LIMIT:-1g}
+          cpus: "${RA_DB_CPU_LIMIT:-1.0}"
+        reservations:
+          memory: ${RA_DB_MEMORY_RESERVATION:-128m}
+          cpus: "${RA_DB_CPU_RESERVATION:-0.25}"
     command: ["--skip-name-resolve"]
     environment:
       MARIADB_DATABASE: ${RA_DB_NAME}
@@ -38,8 +61,18 @@ services:
       options: { max-size: 10m, max-file: "3" }
 
   login:
-    image: ${RA_IMAGE_TAG}
+    image: *rathena-image
     container_name: ra-login
+    # Resource limits as .env-overridable defaults (e.g. RA_LOGIN_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${RA_LOGIN_MEMORY_LIMIT:-512m}
+          cpus: "${RA_LOGIN_CPU_LIMIT:-1.0}"
+        reservations:
+          memory: ${RA_LOGIN_MEMORY_RESERVATION:-64m}
+          cpus: "${RA_LOGIN_CPU_RESERVATION:-0.25}"
     build: .
     command: ["./login-server"]
     depends_on:
@@ -63,8 +96,18 @@ services:
       options: { max-size: 10m, max-file: "3" }
 
   char:
-    image: ${RA_IMAGE_TAG}
+    image: *rathena-image
     container_name: ra-char
+    # Resource limits as .env-overridable defaults (e.g. RA_CHAR_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${RA_CHAR_MEMORY_LIMIT:-512m}
+          cpus: "${RA_CHAR_CPU_LIMIT:-1.0}"
+        reservations:
+          memory: ${RA_CHAR_MEMORY_RESERVATION:-64m}
+          cpus: "${RA_CHAR_CPU_RESERVATION:-0.25}"
     command: ["./char-server"]
     depends_on:
       login: { condition: service_healthy }
@@ -87,8 +130,18 @@ services:
       options: { max-size: 10m, max-file: "3" }
 
   map:
-    image: ${RA_IMAGE_TAG}
+    image: *rathena-image
     container_name: ra-map
+    # Resource limits as .env-overridable defaults (e.g. RA_MAP_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${RA_MAP_MEMORY_LIMIT:-2g}
+          cpus: "${RA_MAP_CPU_LIMIT:-2.0}"
+        reservations:
+          memory: ${RA_MAP_MEMORY_RESERVATION:-256m}
+          cpus: "${RA_MAP_CPU_RESERVATION:-0.5}"
     command: ["./map-server"]
     depends_on:
       char: { condition: service_healthy }
@@ -115,8 +168,18 @@ services:
   # all and every reset goes through you. See webpw/app.py for why this is not
   # FluxCP.
   webpw:
-    image: ${RA_PW_IMAGE_TAG}
+    image: *webpw-image
     container_name: ra-pw
+    # Resource limits as .env-overridable defaults (e.g. RA_PW_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${RA_PW_MEMORY_LIMIT:-256m}
+          cpus: "${RA_PW_CPU_LIMIT:-0.5}"
+        reservations:
+          memory: ${RA_PW_MEMORY_RESERVATION:-32m}
+          cpus: "${RA_PW_CPU_RESERVATION:-0.1}"
     build: ./webpw
     depends_on:
       db: { condition: service_healthy }
