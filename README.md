@@ -1,8 +1,9 @@
 # rathena-docker
 
-Multi-stage Docker build for [rAthena](https://github.com/rathena/rathena), the Ragnarok Online server emulator. Compose stack for the login, char and map servers, a password page for players, and no game data baked into the image.
+[![Deployment Verification](https://github.com/heyvaldemar/rathena-docker/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/rathena-docker/actions/workflows/deployment-verification.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
----
+Multi-stage Docker build for [rAthena](https://github.com/rathena/rathena), the Ragnarok Online server emulator. Compose stack for the login, char and map servers, a password page for players, and no game data baked into the image.
 
 ## Why this exists
 
@@ -202,3 +203,15 @@ Nothing in this repository is Ragnarok Online client data, and none is baked int
 ## Licence
 
 The contents of this repository are MIT-licensed. rAthena itself remains GPL-3.0 and is not covered by that grant.
+
+---
+
+## About the maintainer
+
+<div align="center">
+
+**Maintained by [Vladimir Mikhalev](https://github.com/heyvaldemar)** · Docker Captain · IBM Champion · AWS Community Builder
+
+[YouTube](https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1) · [Blog](https://heyvaldemar.com) · [LinkedIn](https://www.linkedin.com/in/heyvaldemar/)
+
+</div>
