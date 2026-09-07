@@ -173,6 +173,7 @@ jobs:
           docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/logs.sql
           echo "Schema loaded"
 
+      # conformance: allow-no-drill — the image is built from this tree, so a "previous release" would be a rebuild of the same sources; the only pulled image with data (mariadb) is pinned on a major line and moves by a deliberate release.
       - name: Start up services using Docker Compose
         run: docker compose up -d
 

@@ -7,21 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.3.0] - 2026-09-07
+
 ### Added
 
+- **`update.sh`: move between release tags on purpose.** It updates to the latest release (a combination this repository's CI has booted and smoke-tested), refuses to cross a major version unattended, refuses to run over local changes, and names any new required variable before anything has moved. `--dry-run` says what would happen.
 - **A shutdown grace period for the database.** Docker allows ten seconds and
   then sends SIGKILL. MariaDB has InnoDB to flush on the way out, and a shard
   database cut off halfway does crash recovery on the next start, with a game
   world's state behind it.
 
-## [1.2.0] - 2026-09-05
-
-### Added
-
-- **Image pins in an `x-images` block, as interpolation defaults.** Nothing has
-  to be set in `.env` to start, and `git pull` delivers the combination this
-  repository has tested. Two of the three images are built from this checkout,
-  so their defaults name the local tag `build:` produces; the database is
+atabase is
   pulled, so it carries a digest.
 - **Resource limits on all five services**, as `.env`-overridable defaults.
   With no ceiling the kernel's out-of-memory killer picks its victim by size,
@@ -52,7 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that boots all four services and smoke-tests them, with the schema loaded
   before the servers start.
 
-[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/heyvaldemar/rathena-docker/releases/tag/v1.0.0
