@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.4.0] - 2026-09-22
+
 ### Added
 
 - **A backup for the shard database, which had none.** Every account, character and item in this stack lives in the `db` service and nowhere else; rAthena offers no export and losing that volume leaves a fresh install with the same name. The new `backups` sidecar dumps it on an interval with `--single-transaction --quick`, so a live shard is neither locked nor buffered through the sidecar's memory, and prunes dumps older than `RA_BACKUP_PRUNE_DAYS`.
@@ -54,7 +58,8 @@ atabase is
   that boots all four services and smoke-tests them, with the schema loaded
   before the servers start.
 
-[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.0.0...v1.1.0
