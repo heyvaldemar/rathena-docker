@@ -207,3 +207,23 @@ jobs:
       - name: Shutdown Docker Compose services
         if: always()
         run: docker compose down
+
+  backup:
+    name: The backup, shown a failure as well as a success
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: A dump that opens, and a failure that leaves nothing behind
+        # Every account, character and item on a shard lives in the database
+        # and nowhere else. The half that matters is the second one: a backup
+        # that cannot be taken must not leave a file under the name a restore
+        # would pick.
+        run: |
+          chmod +x tests/e2e-backup.sh
+          ./tests/e2e-backup.sh

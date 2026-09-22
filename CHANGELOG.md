@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Added
+
+- **A backup for the shard database, which had none.** Every account, character and item in this stack lives in the `db` service and nowhere else; rAthena offers no export and losing that volume leaves a fresh install with the same name. The new `backups` sidecar dumps it on an interval with `--single-transaction --quick`, so a live shard is neither locked nor buffered through the sidecar's memory, and prunes dumps older than `RA_BACKUP_PRUNE_DAYS`.
+
+- **The dump is read back before it is renamed.** It is written to `.partial`, tested with `gzip -t`, and only then moved into the name a restore would pick; a dump that could not be taken is kept as `.failed` for diagnosis and leaves nothing under the real name. `tests/e2e-backup.sh` is shown both directions against a real MariaDB — a healthy dump that opens and carries the rows, and a refused login that produces no backup at all.
 
 ## [1.3.0] - 2026-09-07
 

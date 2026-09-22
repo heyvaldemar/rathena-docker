@@ -215,3 +215,68 @@ services:
     logging:
       driver: json-file
       options: { max-size: 10m, max-file: "3" }
+
+  # A SHARD DATABASE WITH NO BACKUP IS A SHARD WITH ONE COPY OF EVERY
+  # CHARACTER. Every account, every item, every zeny in this stack lives in
+  # the `db` service and nowhere else. rAthena writes it continuously and
+  # there is no export in the game: lose that volume and the shard is a fresh
+  # install with the same name.
+  #
+  # The shape is the fleet's: write to `.partial`, and only rename into the
+  # name a restore would pick once the file has been proven to open. An exit
+  # code has never been a statement about whether the file it produced opens.
+  backups:
+    image: *mariadb-image
+    container_name: ra-backups
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    deploy:
+      resources:
+        limits:
+          memory: ${RA_BACKUPS_MEMORY_LIMIT:-256m}
+          cpus: "${RA_BACKUPS_CPU_LIMIT:-0.5}"
+        reservations:
+          memory: ${RA_BACKUPS_MEMORY_RESERVATION:-32m}
+          cpus: "${RA_BACKUPS_CPU_RESERVATION:-0.1}"
+    command: >-
+      bash -c 'set -o pipefail;
+      sleep "$$BACKUP_INIT_SLEEP";
+      while true; do
+        STAMP="$$(date +%Y-%m-%d_%H-%M)";
+        DB_FILE="$$RA_BACKUPS_PATH/$$RA_BACKUP_NAME-$$STAMP.gz";
+        echo "[$$(date -Iseconds)] Starting database backup to $$DB_FILE";
+        if mariadb-dump -h db -u $$RA_DB_USER -p"$$RA_DB_PASSWORD" --single-transaction --quick $$RA_DB_NAME | gzip > "$$DB_FILE.partial" && gzip -t "$$DB_FILE.partial"; then
+          mv "$$DB_FILE.partial" "$$DB_FILE";
+          echo "[$$(date -Iseconds)] Database backup OK: $$DB_FILE ($$(stat -c %s "$$DB_FILE") bytes)";
+        else
+          echo "[$$(date -Iseconds)] Database backup FAILED - partial file kept as $$DB_FILE.failed for diagnosis" >&2;
+          mv "$$DB_FILE.partial" "$$DB_FILE.failed" 2>/dev/null || true;
+        fi;
+        if [ "$${RA_BACKUP_PRUNE_DAYS:-0}" -ge 1 ]; then
+          find "$$RA_BACKUPS_PATH" -type f -name "$$RA_BACKUP_NAME-*" -mtime "+$$RA_BACKUP_PRUNE_DAYS" -delete;
+        fi;
+        sleep "$$BACKUP_INTERVAL";
+      done'
+    volumes:
+      - ./data/backups:${RA_BACKUPS_PATH:-/srv/rathena/backups}
+    environment:
+      RA_DB_NAME: ${RA_DB_NAME}
+      RA_DB_USER: ${RA_DB_USER}
+      RA_DB_PASSWORD: ${RA_DB_PASSWORD}
+      # --single-transaction --quick above: a consistent snapshot of InnoDB
+      # without locking the tables a live shard is writing to, streamed row by
+      # row instead of buffered in this container's 256 MB.
+      BACKUP_INIT_SLEEP: ${RA_BACKUP_INIT_SLEEP:-30m}
+      BACKUP_INTERVAL: ${RA_BACKUP_INTERVAL:-24h}
+      RA_BACKUP_PRUNE_DAYS: ${RA_BACKUP_PRUNE_DAYS:-7}
+      RA_BACKUPS_PATH: ${RA_BACKUPS_PATH:-/srv/rathena/backups}
+      RA_BACKUP_NAME: ${RA_BACKUP_NAME:-rathena-db-backup}
+      TZ: ${RA_TIMEZONE}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
