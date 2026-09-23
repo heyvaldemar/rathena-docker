@@ -1,0 +1,63 @@
+name: Pin Freshness
+
+# ITS OWN WORKFLOW, SO THE BADGE MEANS WHAT A READER THINKS IT MEANS.
+#
+# This job used to run inside Deployment Verification, whose badge is the one
+# on the README and in the catalogue. It is a designed alarm: it goes red when
+# a pin falls behind upstream, and the fleet's triage moves the pin within the
+# day. Measured across the fleet over fourteen days, nine red runs in ten were
+# this alarm and nothing else, and a visitor cannot tell "one version behind"
+# from "does not boot". The job below is unchanged; only its address moved.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Daily rebuild: security patches should not wait for a weekly slot.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: pin-freshness-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Authenticated requests avoid the anonymous API rate limit that shared
+  # GitHub runners regularly hit (api.github.com answers 403 otherwise).
+  GH_API_TOKEN: ${{ github.token }}
+
+jobs:
+  check-source-freshness:
+    name: Check the pinned rAthena commit for upstream drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Scheduled + manual dispatch only. rAthena has no releases — the
+    # source moves weekly — so the pinned commit is the version. This job
+    # is the signal to bump RATHENA_REF and rebuild.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compare RATHENA_REF against the upstream master head
+        run: |
+          pinned="$(grep -oE '^ARG RATHENA_REF=[0-9a-f]+' Dockerfile | cut -d= -f2)"
+          latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/rathena/rathena/commits/master | jq -r .sha)"
+          if [ -z "$latest" ] || [ "$latest" = "null" ]; then
+            echo "::error::Could not read the upstream master head"
+            exit 1
+          fi
+          if [ "$pinned" != "$latest" ]; then
+            behind="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" "https://api.github.com/repos/rathena/rathena/compare/$pinned...master" | jq -r .ahead_by)"
+            echo "::error::RATHENA_REF is ${behind:-?} commits behind upstream master (pinned ${pinned}, head ${latest}) — bump and rebuild"
+            exit 1
+          fi
+          echo "RATHENA_REF matches the upstream master head"

@@ -52,35 +52,6 @@ jobs:
             rhysd/actionlint:1.7.12 \
             -color
 
-  check-source-freshness:
-    name: Check the pinned rAthena commit for upstream drift
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # Scheduled + manual dispatch only. rAthena has no releases — the
-    # source moves weekly — so the pinned commit is the version. This job
-    # is the signal to bump RATHENA_REF and rebuild.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Compare RATHENA_REF against the upstream master head
-        run: |
-          pinned="$(grep -oE '^ARG RATHENA_REF=[0-9a-f]+' Dockerfile | cut -d= -f2)"
-          latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/rathena/rathena/commits/master | jq -r .sha)"
-          if [ -z "$latest" ] || [ "$latest" = "null" ]; then
-            echo "::error::Could not read the upstream master head"
-            exit 1
-          fi
-          if [ "$pinned" != "$latest" ]; then
-            behind="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" "https://api.github.com/repos/rathena/rathena/compare/$pinned...master" | jq -r .ahead_by)"
-            echo "::error::RATHENA_REF is ${behind:-?} commits behind upstream master (pinned ${pinned}, head ${latest}) — bump and rebuild"
-            exit 1
-          fi
-          echo "RATHENA_REF matches the upstream master head"
-
   scan-trivy:
     name: Scan the pinned database image with Trivy
     runs-on: ubuntu-latest
