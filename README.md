@@ -1,6 +1,7 @@
 # rathena-docker
 
 [![Deployment Verification](https://github.com/heyvaldemar/rathena-docker/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/rathena-docker/actions/workflows/deployment-verification.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14898/badge)](https://www.bestpractices.dev/projects/14898)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Multi-stage Docker build for [rAthena](https://github.com/rathena/rathena), the Ragnarok Online server emulator. Compose stack for the login, char and map servers, a password page for players, and no game data baked into the image.
