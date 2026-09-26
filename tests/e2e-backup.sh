@@ -99,6 +99,35 @@ else
   fail "the failure left nothing to diagnose"
 fi
 
+# THE PRUNE, WITH THE SIDECAR'S OWN LINE. The loop in docker-compose.yml
+# deletes archives older than RA_BACKUP_PRUNE_DAYS with one find. A copy of
+# that line here would be a test of the copy, so the line is read out of the
+# compose file and run from the same image: a file dated 2020 has to go, a
+# fresh one has to stay. Nothing exercised this until 2026-09-25.
+echo "=== the prune, with the sidecar's own line ==="
+# The dollar signs are the point: the compose file escapes them as $$, and the
+# pattern has to match that literally before it is turned back into one.
+# shellcheck disable=SC2016
+prune_line="$(grep -oE 'find "\$\$RA_BACKUPS_PATH"[^;]*-delete' "$(dirname "$0")/../docker-compose.yml" | head -1 | sed 's/\$\$/$/g')"
+if [ -z "$prune_line" ]; then
+  fail "the compose file carries no prune line this test recognises"
+else
+  touch -t 202001010000 "$WORK/rathena-db-backup-2020-01-01_00-00.gz"
+  touch "$WORK/rathena-db-backup-fresh.gz"
+  docker run --rm -v "$WORK:/backups" -e RA_BACKUPS_PATH=/backups -e RA_BACKUP_NAME=rathena-db-backup \
+    -e RA_BACKUP_PRUNE_DAYS=7 "$IMAGE" bash -c "$prune_line" 2>/dev/null
+  if [ ! -f "$WORK/rathena-db-backup-2020-01-01_00-00.gz" ]; then
+    pass "a file dated 2020 is pruned by the shipped line"
+  else
+    fail "a file dated 2020 survived the shipped prune line"
+  fi
+  if [ -f "$WORK/rathena-db-backup-fresh.gz" ]; then
+    pass "and a fresh one stays"
+  else
+    fail "the prune took a fresh file with it"
+  fi
+fi
+
 echo
 echo "=== $PASSED passed, $FAILED failed ==="
 [ "$FAILED" -eq 0 ]
