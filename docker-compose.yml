@@ -20,7 +20,7 @@
 x-images:
   rathena: &rathena-image ${RA_IMAGE_TAG:-rathena:prere-20200401-a3.24}
   webpw: &webpw-image ${RA_PW_IMAGE_TAG:-rathena-webpw:1}
-  mariadb: &mariadb-image ${RA_DB_IMAGE_TAG:-mariadb:${RA_DB_IMAGE_VERSION:-11.8@sha256:2439dcd7d14010ecd1ff7a4e1c5abe8e208c34fe35290744deeeaac3569043c3}}
+  mariadb: &mariadb-image ${RA_DB_IMAGE_TAG:-mariadb:${RA_DB_IMAGE_VERSION:-11.8@sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15}}
 
 services:
   db:
