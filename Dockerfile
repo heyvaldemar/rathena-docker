@@ -32,7 +32,7 @@ RUN apk add --no-cache git make gcc g++ zlib-dev mariadb-dev linux-headers bash
 # FULL SHA, not an abbreviation: `git fetch --depth 1 origin <ref>` will not resolve
 # a shortened hash — the remote has to be asked for an object it can name exactly.
 # The first build here failed on `2fe6ab3dc4d8` for precisely that reason.
-ARG RATHENA_REF=e985006171d2eb320ee512a653f4c83aea3d81b6
+ARG RATHENA_REF=d4b8e7b8f16061cc2496d377ac8f777ce72a4f39
 # PACKETVER must match the client your players use. rAthena's own default is
 # 20211103, which it classifies as PACKETVER_RE — the Sakray branch. 20200401
 # falls under PACKETVER_MAIN and suits a pre-renewal shard; it is what the

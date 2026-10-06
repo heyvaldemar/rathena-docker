@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **rAthena moved from upstream `e985006` to `d4b8e7b`.** Two commits, both data: a duplicate refine key removed from the Gaebolg
+  Muffler in `db/re/item_db_equip.yml` and a duplicate trade block from the Sinulog Hat in `db/re/item_group_db.yml`. No SQL file
+  changed, so an existing database needs no upgrade script. CI rebuilt the server from the new commit and booted login, char and map.
 
 ## [1.4.1] - 2026-10-06
 
