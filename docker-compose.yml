@@ -80,8 +80,17 @@ services:
           cpus: "${RA_LOGIN_CPU_RESERVATION:-0.25}"
     build: .
     command: ["./login-server"]
+    # A NEW DATABASE UNDER OLD CONNECTIONS. login, char and map hold their
+    # MariaDB connections open for hours. When an update recreates db alone,
+    # they keep running on sockets to a server that is gone: still healthy,
+    # since the healthchecks only see the listening ports, and the first query
+    # on a stale socket, usually someone logging in, is the one that fails.
+    # `restart: true` makes compose restart a service whenever it recreates
+    # db, and it does not cascade, so all three name db directly. Compose
+    # stops the three, recreates db, then starts login, char and map in this
+    # order, each healthy before the next. tests/e2e-db-recreate.sh checks it.
     depends_on:
-      db: { condition: service_healthy }
+      db: { condition: service_healthy, restart: true }
     environment:
       TZ: ${RA_TIMEZONE}
     volumes:
@@ -115,6 +124,7 @@ services:
           cpus: "${RA_CHAR_CPU_RESERVATION:-0.25}"
     command: ["./char-server"]
     depends_on:
+      db: { condition: service_healthy, restart: true }
       login: { condition: service_healthy }
     environment:
       TZ: ${RA_TIMEZONE}
@@ -149,6 +159,7 @@ services:
           cpus: "${RA_MAP_CPU_RESERVATION:-0.5}"
     command: ["./map-server"]
     depends_on:
+      db: { condition: service_healthy, restart: true }
       char: { condition: service_healthy }
     environment:
       TZ: ${RA_TIMEZONE}

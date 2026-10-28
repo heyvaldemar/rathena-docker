@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A new database no longer leaves the servers on dead connections.** login, char and map hold their MariaDB connections open, and an update that recreated `db` alone (a new MariaDB digest is the usual one) left them on sockets to a server that was gone. Every healthcheck stayed green, because the healthchecks only see the listening ports, and the next login was the query that failed. All three now depend on `db` with `restart: true`: when compose recreates `db`, it stops the three, then starts login, char and map in that order, each healthy before the next. `restart: true` does not cascade through `login`, which is why each server names `db` itself. `tests/e2e-db-recreate.sh` recreates `db` the way an update does and reads each server's sockets to port 3306 from the kernel table; CI also runs it with `db` recreated alone and requires that run to fail. Needs Docker Compose 2.17 or newer.
+
 ### Added
 
 - **CI fails on an anonymous volume.** A `VOLUME` an image declares and no mount covers becomes an anonymous volume: never backed up, and replaced by an empty one on `down`/`up`. The deployment verification now inspects every container it starts and fails on one, unless `.github/anonymous-volumes` lists it with the reason. GLPI's data lived in exactly such a volume from 2026-08-31 to 2026-10-11.

@@ -211,6 +211,8 @@ The contents of this repository are MIT-licensed. rAthena itself remains GPL-3.0
 
 `./update.sh` moves this checkout to the latest release tag — a combination this repository's CI has booted, upgraded from the previous release on the same volumes, and smoke-tested — and then runs `docker compose up -d --build`, rebuilding the image from the pinned upstream revision. It refuses to cross a major version unattended, refuses to run over local changes, and names any variable that became required since your version before anything has moved. `./update.sh --dry-run` says what would happen. Every release cut by fleet triage also carries what upstream changed, read from its release notes against this compose file.
 
+A release that moves only the MariaDB pin recreates `db` and, with it, restarts login, char and map in that order: their open connections would otherwise outlive the database they point at. Expect the map server to take its usual minute or two to load before players can enter.
+
 ## About the maintainer
 
 <div align="center">

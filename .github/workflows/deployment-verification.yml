@@ -194,6 +194,20 @@ jobs:
           timeout 2m bash -c 'while ! curl -fs -o /dev/null http://127.0.0.1:8090/; do sleep 5; done'
           curl -fs -o /dev/null -w "webpw: %{http_code}\n" http://127.0.0.1:8090/
 
+      - name: A new database under the servers' old connections
+        # An update that recreates db alone leaves login, char and map on
+        # sockets to a server that is gone, with every healthcheck green.
+        # Shown both ways: the stack as shipped restarts all three, in order,
+        # and db recreated alone (--no-deps, as before 2026-10-28) is caught.
+        run: |
+          chmod +x tests/e2e-db-recreate.sh
+          ./tests/e2e-db-recreate.sh
+          if SABOTAGE=1 ./tests/e2e-db-recreate.sh; then
+            echo "::error::the test passed with db recreated alone, so it cannot tell a stale server from a restarted one"
+            exit 1
+          fi
+          echo "db recreated alone was caught, as it must be"
+
       - name: Show container logs on failure
         if: failure()
         run: docker compose logs
