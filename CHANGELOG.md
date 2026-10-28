@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.5.0] - 2026-10-28
+
 ### Fixed
 
 - **A new database no longer leaves the servers on dead connections.** login, char and map hold their MariaDB connections open, and an update that recreated `db` alone (a new MariaDB digest is the usual one) left them on sockets to a server that was gone. Every healthcheck stayed green, because the healthchecks only see the listening ports, and the next login was the query that failed. All three now depend on `db` with `restart: true`: when compose recreates `db`, it stops the three, then starts login, char and map in that order, each healthy before the next. `restart: true` does not cascade through `login`, which is why each server names `db` itself. `tests/e2e-db-recreate.sh` recreates `db` the way an update does and reads each server's sockets to port 3306 from the kernel table; CI also runs it with `db` recreated alone and requires that run to fail. Needs Docker Compose 2.17 or newer.
@@ -87,7 +91,8 @@ atabase is
   that boots all four services and smoke-tests them, with the schema loaded
   before the servers start.
 
-[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.3.0...v1.4.0
