@@ -172,6 +172,13 @@ any more. This sets one from the host, one parameterised `UPDATE`, the new
 password written to a mode-600 file rather than printed, and the result checked
 by performing a real login rather than assuming the write took.
 
+The new password is written down before the database sees it, as
+`secrets/ro-<account>-password.new`, and becomes `secrets/ro-<account>-password`
+once the database or the login says it is in effect. If Docker kills the exec
+mid-way and the login refuses the new password, the run exits 1 and the earlier
+file is left as it was. Until 2026-11 the login check was a Python syntax error
+and never ran; `tests/e2e-set-password.sh` now runs it against the real stack.
+
 ```bash
 tools/set-password.sh someaccount
 ```

@@ -39,7 +39,13 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/mnt" -w /mnt \
             koalaman/shellcheck-alpine:stable \
-            shellcheck render-conf.sh tools/set-password.sh
+            shellcheck render-conf.sh tools/set-password.sh tests/set-password.sh tests/e2e-set-password.sh
+
+      - name: The password tool keeps a password that may be in effect
+        # Docker can fail under the UPDATE: exit 128 before it ran, 137 maybe
+        # after. A fake docker plays the database and the login server, and
+        # compiles the login check, which was a SyntaxError until 2026-11.
+        run: ./tests/set-password.sh
 
       - name: hadolint (Dockerfile linting)
         run: |
@@ -193,6 +199,14 @@ jobs:
         run: |
           timeout 2m bash -c 'while ! curl -fs -o /dev/null http://127.0.0.1:8090/; do sleep 5; done'
           curl -fs -o /dev/null -w "webpw: %{http_code}\n" http://127.0.0.1:8090/
+
+      - name: The password tool sets a password the login server accepts
+        # The tool's own login check never ran before 2026-11. A scratch
+        # account, the tool, and the same login with a wrong password as the
+        # control.
+        run: |
+          chmod +x tests/e2e-set-password.sh
+          ./tests/e2e-set-password.sh
 
       - name: A new database under the servers' old connections
         # An update that recreates db alone leaves login, char and map on

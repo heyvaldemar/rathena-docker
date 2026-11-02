@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Fixed
+
+- **`tools/set-password.sh` checks the new password with a real login, as it always said it did.** The check's python carried `${RA_PACKETVER:-20200401}` inside single quotes, so python received it as written: a `SyntaxError` from the first version on. The run stopped there with exit 1, after writing the password file, and nothing ever exercised the check. The packet version now travels in the environment. A login that refuses the new password exits 1.
+- **A password that may be in effect is never thrown away.** The UPDATE runs through `docker exec`, and an exec killed by a restart ends with 137 and prints nothing (measured on Docker 29.7.2), possibly after the UPDATE ran. The script read that as "FAILED: no account" and wrote no file, which leaves an account with a password nobody holds. The new password is now written to `secrets/ro-<account>-password.new` before the database sees it and moves into place once the database or the login proves it. Docker refusing the exec before it started (exit 1, or 128 with "cannot exec in a stopped state" on stdout, which used to surface as "integer expression expected" and "no account") now says the UPDATE did not run.
+- `tests/set-password.sh` plays the database and the login server through a fake `docker` and compiles the login check; the released script fails 5 of its 7 checks. `tests/e2e-set-password.sh` sets a scratch account's password against the real stack, with a wrong password refused as the control.
 
 ## [1.5.0] - 2026-10-28
 
