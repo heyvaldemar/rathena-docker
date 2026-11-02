@@ -34,6 +34,14 @@ docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" ragna
   < sqlfiles/logs.sql
 ```
 
+Then give the inter-server account the credentials from `.env`:
+
+```bash
+tools/set-inter-account.sh
+```
+
+The schema creates that account as `s1` / `p1`, while char and map log in with `RA_INTER_USER` / `RA_INTER_PASS`. Until the row matches, the login server refuses the char-server ("Unknown account"), and every player whose password is right is turned away with "there is no char-server online". All three containers report healthy either way, because the healthchecks only look at listening ports. The script updates account 1, stores the password as md5, and waits for the login server to accept the char-server.
+
 The login server listens on 6900, char on 6121, map on 5121.
 
 ## What is in the image, and what is not

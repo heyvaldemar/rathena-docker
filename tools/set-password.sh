@@ -51,7 +51,9 @@ printf '%s\n' "$NEW" > "$OUT.new"
 # 128 and below: the exec never got as far as the UPDATE (Docker refusing, as
 # "cannot exec in a stopped state" with 128, printed on stdout, or the
 # database refusing it). Above 128: killed by a signal, maybe after it ran.
-if res=$(docker exec -e A="$ACCT" -e P="$NEW" "${RA_DB_CONTAINER:-ra-db}" sh -c '
+# A and P reach docker in the environment, so the new password is not on a
+# command line anyone on the host can list.
+if res=$(A="$ACCT" P="$NEW" docker exec -e A -e P "${RA_DB_CONTAINER:-ra-db}" sh -c '
   mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" '"$RA_DB_NAME"' \
     -e "UPDATE login SET user_pass = MD5(\"$P\") WHERE userid = \"$A\";
         SELECT ROW_COUNT();"'); then
@@ -79,8 +81,15 @@ esac
 # The packet version travels as V: inside these single quotes, a shell
 # ${...} reaches python as it is written, and until 2026-11 this check was a
 # SyntaxError that ended the run before it said anything.
+#
+# THE ANSWER IS READ BY ITS PACKET. 0x0069 or 0x0AC4 is a login accepted.
+# 0x0081 comes only after the password was accepted (loginclif.cpp: it is sent
+# from logclif_auth_ok, which runs when login_mmo_auth succeeds), and code 1
+# there is the server refusing to go on, most often because no char-server is
+# online: the password is proven all the same. A wrong password is
+# AC_REFUSE_LOGIN, 0x006A or 0x083E.
 echo "== verifying with a real login"
-verdict=$(docker run --rm --network "container:${RA_LOGIN_CONTAINER:-ra-login}" -e A="$ACCT" -e P="$NEW" -e V="${RA_PACKETVER:-20200401}" python:3.13-alpine python3 -c '
+verdict=$(A="$ACCT" P="$NEW" V="${RA_PACKETVER:-20200401}" docker run --rm --network "container:${RA_LOGIN_CONTAINER:-ra-login}" -e A -e P -e V python:3.13-alpine python3 -c '
 import os, socket, struct, time
 a=os.environ["A"].encode(); p=os.environ["P"].encode()
 s=socket.create_connection(("127.0.0.1",6900),timeout=8)
@@ -89,10 +98,15 @@ time.sleep(0.7)
 try: r=s.recv(512)
 except Exception: r=b""
 s.close()
-ok = bool(r) and (r[0]==0x69 or struct.unpack_from("<H",r)[0]==0x0AC4)
-print("   ACCEPTED" if ok else "   REFUSED")') || verdict="   NO ANSWER: the login check did not complete"
+h = struct.unpack_from("<H", r)[0] if len(r) >= 2 else -1
+if h in (0x0069, 0x0AC4):
+    print("   ACCEPTED")
+elif h == 0x0081:
+    print("   ACCEPTED, then the server stopped the login (code %d; 1 is most often no char-server online)" % (r[2] if len(r) > 2 else -1))
+else:
+    print("   REFUSED")') || verdict="   NO ANSWER: the login check did not complete"
 echo "$verdict"
-if [ "$verdict" != "   ACCEPTED" ]; then
+if [ "${verdict#   ACCEPTED}" = "$verdict" ]; then
   [ ! -e "$OUT.new" ] || echo "   not proven: the new password stays in $OUT.new, and $OUT, if there is one, is left as it was"
   exit 1
 fi

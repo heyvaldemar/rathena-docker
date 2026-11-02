@@ -39,7 +39,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/mnt" -w /mnt \
             koalaman/shellcheck-alpine:stable \
-            shellcheck render-conf.sh tools/set-password.sh tests/set-password.sh tests/e2e-set-password.sh
+            shellcheck render-conf.sh tools/set-password.sh tools/set-inter-account.sh tests/set-password.sh tests/e2e-set-password.sh
 
       - name: The password tool keeps a password that may be in effect
         # Docker can fail under the UPDATE: exit 128 before it ran, 137 maybe
@@ -155,6 +155,9 @@ jobs:
           docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/main.sql
           docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/logs.sql
           echo "Schema loaded"
+          # The README's next step: the schema names the inter-server account
+          # s1 / p1, and char logs in with the credentials from .env.
+          tools/set-inter-account.sh
 
       # conformance: allow-no-drill — the image is built from this tree, so a "previous release" would be a rebuild of the same sources; the only pulled image with data (mariadb) is pinned on a major line and moves by a deliberate release.
       - name: Start up services using Docker Compose
@@ -184,9 +187,10 @@ jobs:
           echo "every volume the images declare is named, or listed as anonymous on purpose"
 
       - name: Wait for all three servers to report healthy
-        # The healthchecks assert each server is listening (6900/6121/5121);
-        # map-server healthy means it connected to char, char to login, and
-        # login to the database — the full chain.
+        # The healthchecks assert each server is listening (6900/6121/5121).
+        # They do not see the servers log in to each other: until 2026-11 the
+        # char-server here was refused by the login-server on every run
+        # ("Unknown account") with all three healthy. The next step checks it.
         run: |
           # shellcheck disable=SC2016
           timeout 10m bash -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" ra-login ra-char ra-map | sort -u)" = "healthy" ]; do
@@ -194,6 +198,12 @@ jobs:
             sleep 15
           done'
           docker logs ra-map 2>&1 | tail -3
+
+      - name: The login-server has accepted the char-server
+        # The same script as the README's first start, run again now that
+        # char is up: it waits for the login-server's newest verdict on the
+        # char-server to be "accepted".
+        run: tools/set-inter-account.sh
 
       - name: Verify the password page answers
         run: |
