@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.6.0] - 2026-11-02
+
 ### Fixed
 
 - **The first start now gives the char-server an account it can log in with.** The schema creates the inter-server account as `s1` / `p1`, while `render-conf.sh` tells char and map to log in as `RA_INTER_USER` / `RA_INTER_PASS`, and nothing in the README or CI changed the row. A stack started as the Quick start says ran with the login server refusing the char-server ("Unknown account") and turning away every player whose password was right ("there is no char-server online"), with all three containers healthy, because the healthchecks only look at listening ports. CI ran that way too, and its comment said a healthy map-server meant the whole chain was connected. New `tools/set-inter-account.sh` updates account 1 from `.env` (the password hashed to md5 on the host and passed in the environment) and waits for the login server to accept the char-server. The README's first start runs it, and CI runs it twice: after the schema loads, and again once the servers are up, where it fails unless the login server has accepted the char-server. The new end-to-end test of `tools/set-password.sh` found it: the login server answered "Authentication accepted", then refused for want of a char-server.
@@ -97,7 +101,8 @@ atabase is
   that boots all four services and smoke-tests them, with the schema loaded
   before the servers start.
 
-[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.0...v1.4.1
