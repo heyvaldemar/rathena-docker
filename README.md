@@ -28,9 +28,9 @@ Load the schema once, from the image's own `sql-files`:
 
 ```bash
 docker compose cp login:/rathena/sql-files ./sqlfiles
-docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" ragnarok' \
+docker compose exec -T db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot ragnarok' \
   < sqlfiles/main.sql
-docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" ragnarok' \
+docker compose exec -T db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot ragnarok' \
   < sqlfiles/logs.sql
 ```
 

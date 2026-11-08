@@ -24,7 +24,7 @@ pass() { echo "  PASS: $1"; PASSED=$((PASSED+1)); }
 fail() { echo "  FAIL: $1"; FAILED=$((FAILED+1)); }
 
 ACCT="setpw$$"
-sql() { docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -N -e "$1"' _ "$1"; }
+sql() { docker compose exec -T db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot "$MARIADB_DATABASE" -N -e "$1"' _ "$1"; }
 cleanup() {
   sql "DELETE FROM login WHERE userid = '$ACCT';" >/dev/null 2>&1
   rm -f "secrets/ro-$ACCT-password" "secrets/ro-$ACCT-password.new" "secrets/ro-nosuch$$-password" "secrets/ro-nosuch$$-password.new"

@@ -51,12 +51,13 @@ printf '%s\n' "$NEW" > "$OUT.new"
 # 128 and below: the exec never got as far as the UPDATE (Docker refusing, as
 # "cannot exec in a stopped state" with 128, printed on stdout, or the
 # database refusing it). Above 128: killed by a signal, maybe after it ran.
-# A and P reach docker in the environment, so the new password is not on a
-# command line anyone on the host can list.
+# A and P reach docker in the environment, and the statement reaches mariadb
+# on stdin from the shell's own printf: neither the new password nor the root
+# one is on a command line anyone on the host can list (-e "<sql>" would put
+# the statement, password and all, in mariadb's arguments).
 if res=$(A="$ACCT" P="$NEW" docker exec -e A -e P "${RA_DB_CONTAINER:-ra-db}" sh -c '
-  mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" '"$RA_DB_NAME"' \
-    -e "UPDATE login SET user_pass = MD5(\"$P\") WHERE userid = \"$A\";
-        SELECT ROW_COUNT();"'); then
+  printf "UPDATE login SET user_pass = MD5(\"%s\") WHERE userid = \"%s\";\nSELECT ROW_COUNT();\n" "$P" "$A" |
+    MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot '"$RA_DB_NAME"); then
   rows=$(printf '%s\n' "$res" | tail -1)
 else
   rc=$?

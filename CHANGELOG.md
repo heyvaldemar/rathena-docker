@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Security
+
+- **No password is on any command line any more.** The backup loop ran `mariadb-dump -p"…"`; `tools/set-password.sh` and `tools/set-inter-account.sh` ran `mariadb -p"$MARIADB_ROOT_PASSWORD"` with the new account password inside the `-e` statement; the README's schema load used `-p` too. A process's arguments are readable by every user on the host with `ps` (`/proc/<pid>/cmdline` is world-readable, and the host sees every container's processes). The client overwrites its `-p` copy once it has parsed it, but only after it was readable, and leaves the password's length on show as a row of `x`; the `-e` statement it never overwrote. Now every client reads `MYSQL_PWD`, and the two tools send their statement on stdin from the shell's own `printf`. Verified on the pinned `mariadb:11.8`: the variable is read (a wrong value is refused with 1045) and no warning is printed. `tests/e2e-backup.sh` now runs the dump line read out of the compose file, holds one dump open on a table lock and reads every command line on the runner and in the sidecar meanwhile: none may carry the password (compared through a file, never printed), and the dump may carry no `-p`.
 
 ## [1.6.0] - 2026-11-02
 

@@ -33,10 +33,11 @@ H=$(printf '%s' "$P" | openssl dgst -md5 -r | cut -c1-32)
 case "$H" in *[!0-9a-f]*|'') echo "could not hash RA_INTER_PASS" >&2; exit 1 ;; esac
 
 DB=${RA_DB_CONTAINER:-ra-db}
+# The statement goes to mariadb on stdin and the root password in MYSQL_PWD:
+# an argument is on a command line every user on the host can list.
 n=$(U="$U" H="$H" D="$RA_DB_NAME" docker exec -e U -e H -e D "$DB" sh -c '
-  mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$D" -N \
-    -e "UPDATE login SET userid = \"$U\", user_pass = \"$H\" WHERE account_id = 1 AND sex = \"S\";
-        SELECT COUNT(*) FROM login WHERE account_id = 1 AND sex = \"S\" AND userid = \"$U\" AND user_pass = \"$H\";"' | tail -1)
+  printf "UPDATE login SET userid = \"%s\", user_pass = \"%s\" WHERE account_id = 1 AND sex = \"S\";\nSELECT COUNT(*) FROM login WHERE account_id = 1 AND sex = \"S\" AND userid = \"%s\" AND user_pass = \"%s\";\n" "$U" "$H" "$U" "$H" |
+    MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot "$D" -N' | tail -1)
 if [ "$n" != 1 ]; then
   echo "FAILED: there is no inter-server account (account_id 1, sex S) to update: load sql-files/main.sql first" >&2
   exit 1

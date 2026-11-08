@@ -152,8 +152,8 @@ jobs:
             -c 'tar -C /rathena -cf - sql-files' > sqlfiles.tar \
             || { docker compose run --rm --no-deps --entrypoint /bin/sh login -c 'ls -la /rathena'; exit 1; }
           mkdir -p sqlfiles && tar -xf sqlfiles.tar -C sqlfiles --strip-components=1
-          docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/main.sql
-          docker compose exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < sqlfiles/logs.sql
+          docker compose exec -T db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot "$MARIADB_DATABASE"' < sqlfiles/main.sql
+          docker compose exec -T db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot "$MARIADB_DATABASE"' < sqlfiles/logs.sql
           echo "Schema loaded"
           # The README's next step: the schema names the inter-server account
           # s1 / p1, and char logs in with the credentials from .env.
