@@ -56,6 +56,8 @@ The login server listens on 6900, char on 6121, map on 5121.
 
 > `git fetch --depth 1 origin <ref>` will not resolve a shortened hash. The remote has to be asked for an object it can name exactly, so abbreviations fail with an unhelpful error.
 
+**The health checks ask the servers, not their ports.** `tools/healthcheck.sh`, mounted read-only into each container, asks each server what a game client asks it and is healthy only on the server's reply: the login-server's password-hash key (`0x01db`, answered `0x01dc`), the char-server's echo of a client's account on connect (`0x0065`, for account 1234567, below the first account rAthena hands out), and the map-server's refusal (`0x006a`) of a client's `CZ_ENTER` for account 0. Up to v1.6.1 each check was `netstat`, which a stopped or hung server passes with its listening socket. Each check leaves its server a line or two in the log ("Closed connection", "request connect - account_id:1234567", that account's authentication REFUSED on the login-server, "unknown connect packet 0x0436"), so they run every 60 seconds. **They ask from inside the containers**: healthy proves each server answers there, not that the ports are published on the host or open in your firewall, not that `RA_PUBLIC_IP` is an address clients reach, and not that the servers have logged in to each other.
+
 ---
 
 ## Errors this build already solves

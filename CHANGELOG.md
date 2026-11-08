@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The freshness check reads the bases and the database.** It compared only `RATHENA_REF`. A second job now compares the two `FROM` pins and `RA_DB_IMAGE_TAG` (`mariadb:11.8`, pinned by digest and compared by nothing until now) with what each tag names today, and fails on a new build. An index pushed again over the same linux/amd64 image is named and is not a failure: the stack runs, and CI proves, linux/amd64. On the day it was added, `mariadb:11.8` already named a newer build than the pin.
 
+### Changed
+
+- **The health checks ask the servers, not their ports.** Each was `netstat -ltn | grep -q :<port>`, which a stopped or hung server passes with its listening socket. `tools/healthcheck.sh`, mounted read-only, now asks each server what a game client asks it and is healthy only on its reply: the login-server's password-hash key (0x01db, answered 0x01dc), the char-server's echo of a client's account on connect (0x0065, account 1234567, never a real one), the map-server's refusal (0x006a) of a client's CZ_ENTER for account 0, sent in the 23-byte form so any PACKETVER refuses it. busybox only; nc gives up after 3 seconds. Each check leaves its server a line or two in the log, so the interval is 60 seconds instead of 30. It asks from inside the containers, so it does not prove the ports are published on the host or open in a firewall, nor that the servers have logged in to each other; the README says so. CI stops each server with SIGSTOP and requires its check red while the old `netstat` check stays green, then green again after SIGCONT.
+
 ## [1.6.1] - 2026-11-08
 
 ### Security

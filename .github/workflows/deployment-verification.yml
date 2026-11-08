@@ -39,7 +39,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/mnt" -w /mnt \
             koalaman/shellcheck-alpine:stable \
-            shellcheck render-conf.sh tools/set-password.sh tools/set-inter-account.sh tests/set-password.sh tests/e2e-set-password.sh
+            shellcheck render-conf.sh tools/set-password.sh tools/set-inter-account.sh tools/healthcheck.sh tests/set-password.sh tests/e2e-set-password.sh
 
       - name: The password tool keeps a password that may be in effect
         # Docker can fail under the UPDATE: exit 128 before it ran, 137 maybe
@@ -187,7 +187,8 @@ jobs:
           echo "every volume the images declare is named, or listed as anonymous on purpose"
 
       - name: Wait for all three servers to report healthy
-        # The healthchecks assert each server is listening (6900/6121/5121).
+        # The health checks ask each server what a client asks it
+        # (tools/healthcheck.sh) and are healthy only on its reply.
         # They do not see the servers log in to each other: until 2026-11 the
         # char-server here was refused by the login-server on every run
         # ("Unknown account") with all three healthy. The next step checks it.
@@ -198,6 +199,29 @@ jobs:
             sleep 15
           done'
           docker logs ra-map 2>&1 | tail -3
+
+      - name: Plant - each server stopped keeps its port, and its check goes red
+        # The checks up to v1.6.1 were netstat: a server stopped with SIGSTOP
+        # keeps its listening socket and passes it. Each server in turn: the
+        # old check must still pass and tools/healthcheck.sh fail; after
+        # SIGCONT the new one must pass again.
+        run: |
+          rc=0
+          for role in login char map; do
+            c="ra-$role"
+            # shellcheck disable=SC2016  # expanded by the container's shell
+            pid="$(docker exec "$c" sh -c 'for d in /proc/[0-9]*; do [ "$(cat "$d/comm" 2>/dev/null)" = "$0-server" ] && echo "${d#/proc/}"; done' "$role" | head -1)"
+            [ -n "$pid" ] || { echo "::error::no $role-server process"; rc=1; continue; }
+            case $role in login) port=6900 ;; char) port=6121 ;; *) port=5121 ;; esac
+            docker exec "$c" sh -c "kill -STOP $pid"
+            o=0; docker exec "$c" sh -c "netstat -ltn | grep -q :$port" || o=$?
+            n=0; docker exec "$c" sh /healthcheck.sh "$role" || n=$?
+            docker exec "$c" sh -c "kill -CONT $pid"
+            a=1; for _ in 1 2 3 4 5; do docker exec "$c" sh /healthcheck.sh "$role" && { a=0; break; }; sleep 2; done
+            echo "$role-server stopped: netstat exits $o, the new check $n; after SIGCONT the new check $a"
+            [ "$o" = 0 ] && [ "$n" = 1 ] && [ "$a" = 0 ] || { echo "::error::$role: expected 0, 1, then 0"; rc=1; }
+          done
+          exit "$rc"
 
       - name: The login-server has accepted the char-server
         # The same script as the README's first start, run again now that

@@ -83,7 +83,7 @@ services:
     # A NEW DATABASE UNDER OLD CONNECTIONS. login, char and map hold their
     # MariaDB connections open for hours. When an update recreates db alone,
     # they keep running on sockets to a server that is gone: still healthy,
-    # since the healthchecks only see the listening ports, and the first query
+    # since the health checks ask the servers, not the database, and the first query
     # on a stale socket, usually someone logging in, is the one that fails.
     # `restart: true` makes compose restart a service whenever it recreates
     # db, and it does not cascade, so all three name db directly. Compose
@@ -96,10 +96,21 @@ services:
     volumes:
       - ./conf-import:/rathena/conf/import:ro
       - ./logs:/rathena/log
+      - ./tools/healthcheck.sh:/healthcheck.sh:ro
     ports: ["6900:6900"]
     healthcheck:
-      test: ["CMD-SHELL", "netstat -ltn | grep -q :6900"]
-      interval: 30s
+      # THE SERVER'S OWN ANSWER, NOT ITS PORT. tools/healthcheck.sh asks each
+      # server what a game client asks it and is healthy only on the reply:
+      # login, the password-hash key (0x01db -> 0x01dc); char, a client's
+      # connect, answered by echoing the account; map, a client's CZ_ENTER,
+      # refused with 0x006a. Up to v1.6.1 this was netstat, which a stopped or
+      # hung server passes with its listening socket; CI stops each server
+      # with SIGSTOP and requires red. Each check leaves its server a line or
+      # two in the log, hence every 60 seconds; nc gives up after 3. It asks
+      # from inside the container: it does not prove the ports are published
+      # on the host or open in a firewall.
+      test: ["CMD", "sh", "/healthcheck.sh", "login"]
+      interval: 60s
       timeout: 5s
       retries: 3
       start_period: 30s
@@ -131,10 +142,11 @@ services:
     volumes:
       - ./conf-import:/rathena/conf/import:ro
       - ./logs:/rathena/log
+      - ./tools/healthcheck.sh:/healthcheck.sh:ro
     ports: ["6121:6121"]
     healthcheck:
-      test: ["CMD-SHELL", "netstat -ltn | grep -q :6121"]
-      interval: 30s
+      test: ["CMD", "sh", "/healthcheck.sh", "char"]
+      interval: 60s
       timeout: 5s
       retries: 3
       start_period: 30s
@@ -166,10 +178,11 @@ services:
     volumes:
       - ./conf-import:/rathena/conf/import:ro
       - ./logs:/rathena/log
+      - ./tools/healthcheck.sh:/healthcheck.sh:ro
     ports: ["5121:5121"]
     healthcheck:
-      test: ["CMD-SHELL", "netstat -ltn | grep -q :5121"]
-      interval: 30s
+      test: ["CMD", "sh", "/healthcheck.sh", "map"]
+      interval: 60s
       timeout: 5s
       retries: 3
       start_period: 60s
