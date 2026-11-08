@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.7.0] - 2026-11-08
+
 ### Security
 
 - **Both stages of the server image build on `alpine:3.24` pinned by digest, and the password page on `python:3.13-alpine` pinned the same way.** The server's base was `ARG ALPINE=3.24` and `FROM alpine:${ALPINE}`, the password page's `FROM python:3.13-alpine`: each build took whatever the tag named that day, and nothing could compare it with anything. alpine 3.24.4 came out on 2026-11-05 and no check could see it. The pins are today's digests (alpine 3.24.4; Python 3.13.18 on alpine), so a build made now is the same image as before, and a tag repushed upstream is now a drift the freshness check reports.
@@ -18,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **The health checks ask the servers, not their ports.** Each was `netstat -ltn | grep -q :<port>`, which a stopped or hung server passes with its listening socket. `tools/healthcheck.sh`, mounted read-only, now asks each server what a game client asks it and is healthy only on its reply: the login-server's password-hash key (0x01db, answered 0x01dc), the char-server's echo of a client's account on connect (0x0065, account 1234567, never a real one), the map-server's refusal (0x006a) of a client's CZ_ENTER for account 0, sent in the 23-byte form so any PACKETVER refuses it. busybox only; nc gives up after 3 seconds. Each check leaves its server a line or two in the log, so the interval is 60 seconds instead of 30. It asks from inside the containers, so it does not prove the ports are published on the host or open in a firewall, nor that the servers have logged in to each other; the README says so. CI stops each server with SIGSTOP and requires its check red while the old `netstat` check stays green, then green again after SIGCONT.
-
 ## [1.6.1] - 2026-11-08
 
 ### Security
@@ -117,7 +120,8 @@ atabase is
   that boots all four services and smoke-tests them, with the schema loaded
   before the servers start.
 
-[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/heyvaldemar/rathena-docker/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.4.2...v1.5.0
