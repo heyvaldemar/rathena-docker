@@ -32,8 +32,11 @@ cleanup() {
 trap cleanup EXIT
 
 # login <account> <password>: ACCEPTED or REFUSED, from the login server itself.
+# The pair reaches the container by name (-e A -e P): as -e P="$2" the
+# password was in docker's arguments, which every user on the runner reads
+# with ps.
 login() {
-  docker run --rm --network container:ra-login -e A="$1" -e P="$2" python:3.13-alpine python3 -c '
+  A="$1" P="$2" docker run --rm --network container:ra-login -e A -e P python:3.13-alpine python3 -c '
 import os, socket, struct, time
 a=os.environ["A"].encode(); p=os.environ["P"].encode()
 s=socket.create_connection(("127.0.0.1",6900),timeout=8)
