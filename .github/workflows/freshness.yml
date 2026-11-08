@@ -61,3 +61,82 @@ jobs:
             exit 1
           fi
           echo "RATHENA_REF matches the upstream master head"
+
+  check-base-freshness:
+    name: Check the pinned base images for upstream drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The two images are built FROM alpine:3.24 and python:3.13-alpine, and the
+    # database is mariadb:11.8 as pulled. Each is a tag pinned by digest, and a
+    # tag repushed under the same name is a rebuilt base: fleet triage moves the
+    # pin and releases it once the deploy job is green. Until 2026-11-08 nothing
+    # here read any of the three.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compare every pinned base against what its tag names now
+        run: |
+          set -uo pipefail
+          status=0
+          # A NEW INDEX OVER THE SAME BUILD IS NOT DRIFT. A multi-platform tag
+          # names an index, and an index can be pushed again over the very same
+          # images (a platform added, an attestation rewritten). The stack runs,
+          # and CI proves, linux/amd64, so two digests are one image when they
+          # carry the same linux/amd64 build; fleet triage reads them the same way.
+          amd64() {   # amd64 <name:tag@digest> -> its linux/amd64 build
+            local raw
+            raw="$(docker buildx imagetools inspect --raw "$1" 2>/dev/null)" || return 1
+            if jq -e '(.manifests? | type) == "array"' <<<"$raw" >/dev/null 2>&1; then
+              jq -r '[.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64" and ((.platform.variant // "") == ""))][0].digest // empty' <<<"$raw"
+            else
+              printf '%s\n' "${1##*@}"
+            fi
+          }
+          resolve() { # resolve <name:tag> -> the digest it names now, three attempts
+            local d="" attempt
+            for attempt in 1 2 3; do
+              d="$(docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' 2>/dev/null | jq -r '.digest // empty')"
+              [ -n "$d" ] && break
+              sleep $(( attempt * 5 ))
+            done
+            printf '%s\n' "$d"
+          }
+          drifted() { # drifted <name:tag> <pinned digest> <current digest> -> 0 when it is a new build
+            local a b
+            a="$(amd64 "$1@$2")"; b="$(amd64 "$1@$3")"
+            if [ -n "$a" ] && [ "$a" = "$b" ]; then
+              echo "$1: index re-pushed over the same linux/amd64 build (${a}) — not an update"
+              return 1
+            fi
+            return 0
+          }
+          while read -r pin; do
+            name="${pin%%@*}"; pinned="${pin##*@}"
+            current="$(resolve "$name")"
+            if [ -z "$current" ]; then
+              echo "::error::${name} did not resolve after three attempts: the registry did not answer, or the tag is gone. The pin itself is unchanged."
+              status=1
+            elif [ "$current" = "$pinned" ]; then
+              echo "${name} ${current} is the pinned digest"
+            elif drifted "$name" "$pinned" "$current"; then
+              echo "::error::${name} is now ${current}; the Dockerfile pins ${pinned}"
+              status=1
+            fi
+          done < <(grep -hoE '^FROM[[:space:]]+[^[:space:]]+@sha256:[0-9a-f]{64}' Dockerfile webpw/Dockerfile | awk '{print $NF}' | sort -u)
+          pin="$(grep -m1 -oE '\$\{RA_DB_IMAGE_TAG:-.*' docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z0-9_]+:-([^{}]*)\}/\1/' -e 'ta')"
+          ref="${pin%%@*}"; pinned="${pin##*@}"
+          current="$(resolve "$ref")"
+          if [ -z "$current" ]; then
+            echo "::error::${ref} did not resolve after three attempts: the registry did not answer, or the tag is gone. The pin itself is unchanged."
+            status=1
+          elif [ "$current" = "$pinned" ]; then
+            echo "RA_DB_IMAGE_TAG OK (${ref})"
+          elif drifted "$ref" "$pinned" "$current"; then
+            echo "::error::RA_DB_IMAGE_TAG digest drift: pinned ${pinned}, but ${ref} now resolves to ${current}"
+            status=1
+          fi
+          exit "$status"

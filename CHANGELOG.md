@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Security
+
+- **Both stages of the server image build on `alpine:3.24` pinned by digest, and the password page on `python:3.13-alpine` pinned the same way.** The server's base was `ARG ALPINE=3.24` and `FROM alpine:${ALPINE}`, the password page's `FROM python:3.13-alpine`: each build took whatever the tag named that day, and nothing could compare it with anything. alpine 3.24.4 came out on 2026-11-05 and no check could see it. The pins are today's digests (alpine 3.24.4; Python 3.13.18 on alpine), so a build made now is the same image as before, and a tag repushed upstream is now a drift the freshness check reports.
+
+### Fixed
+
+- **The freshness check reads the bases and the database.** It compared only `RATHENA_REF`. A second job now compares the two `FROM` pins and `RA_DB_IMAGE_TAG` (`mariadb:11.8`, pinned by digest and compared by nothing until now) with what each tag names today, and fails on a new build. An index pushed again over the same linux/amd64 image is named and is not a failure: the stack runs, and CI proves, linux/amd64. On the day it was added, `mariadb:11.8` already named a newer build than the pin.
 
 ## [1.6.1] - 2026-11-08
 

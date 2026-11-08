@@ -20,11 +20,17 @@
 # build players connect with. Get it wrong and clients disconnect at character
 # select with nothing useful in the log. It is an ARG so changing it is a rebuild,
 # not an edit of a running server.
-
-ARG ALPINE=3.24
+#
+# THE BASE IS A TAG PINNED BY DIGEST, IN BOTH STAGES. It used to be
+# `ARG ALPINE=3.24` and `FROM alpine:${ALPINE}`: whatever 3.24 named on the day
+# of the build, and nothing to compare. alpine 3.24.4 came out on 2026-11-05
+# and no check could see it. The tag is the 3.24 line, so a patch release of
+# alpine is the same tag repushed: the freshness check reads that, and fleet
+# triage moves both lines together, the deploy job building and booting the
+# stack on the new base before the release.
 
 # ---------------------------------------------------------------- build ----
-FROM alpine:${ALPINE} AS build
+FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS build
 
 # Same toolchain the project uses, minus the debuggers: this stage is thrown away.
 RUN apk add --no-cache git make gcc g++ zlib-dev mariadb-dev linux-headers bash
@@ -55,7 +61,7 @@ RUN ./configure --enable-prere --enable-packetver=${PACKETVER} \
  && test -x login-server && test -x char-server && test -x map-server
 
 # -------------------------------------------------------------- runtime ----
-FROM alpine:${ALPINE}
+FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
 # Runtime only. No compiler, no git, no shell tooling beyond what the server needs
 # to start. `tini` because the three servers are long-lived foreground processes and
