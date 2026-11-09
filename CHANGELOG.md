@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **`mariadb:11.8` was rebuilt upstream**; the pin moved from `sha256:6422478cb8e1…` to `sha256:c4124d1afa87…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
 - **The password test hands the account and the password to its login probe by name.** `tests/e2e-set-password.sh` started the probe with `-e A="$1" -e P="$2"`, which put the scratch account's password in the docker CLI's arguments on the CI runner, where `ps` shows it to every user. It now runs `A=… P=… docker run … -e A -e P`. Fleet conformance missed it because it knew only secret-looking names; it now flags any value expanded into `-e NAME=`. Test only: nothing a deployment runs changed.
 
 ## [1.7.0] - 2026-11-08
