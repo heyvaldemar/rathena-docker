@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.7.1] - 2026-11-09
+
 ### Security
 
 - **`mariadb:11.8` was rebuilt upstream**; the pin moved from `sha256:6422478cb8e1…` to `sha256:c4124d1afa87…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
@@ -123,7 +127,8 @@ atabase is
   that boots all four services and smoke-tests them, with the schema loaded
   before the servers start.
 
-[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/heyvaldemar/rathena-docker/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/heyvaldemar/rathena-docker/compare/v1.5.0...v1.6.0
