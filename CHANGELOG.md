@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`rathena/rathena` moved from `d4b8e7b` to `1ca3e77`.** 1 upstream commit, none of them touching SQL or a migration, so an existing database needs no upgrade script. The deploy job rebuilt the server from the new commit and booted the stack before this landed.
 
 ## [1.7.1] - 2026-11-09
 
