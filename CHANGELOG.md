@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Added
+
+- **CI looks for both database passwords everywhere they could leak to.** `tests/secret-probe.sh` gives `RA_DB_PASSWORD` and `RA_DB_ROOT_PASSWORD` a value each and fails on either in `docker compose logs` of every service, on any command line in any of the containers or in the host's `ps`, after the first start, while the password tool and its checks run, and after the servers are restarted under a new database; it names the variable and the place, never the value. It found nothing ([run 43620468484](https://github.com/heyvaldemar/rathena-docker/actions/runs/43620468484)). The CI step that wrote the passwords into `.env` no longer has them on `sed`'s command line.
+- **A stop is measured.** `tests/clean-stop.sh` times `docker compose stop`: the map-server in under a second, exit 0 (tini passes SIGTERM on), and the database, where the world of an rAthena server lives, in 1 second of its 60, exit 0, with MariaDB's own "Shutdown complete".
 
 ## [1.7.3] - 2026-11-13
 

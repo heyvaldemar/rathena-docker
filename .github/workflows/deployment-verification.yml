@@ -39,7 +39,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/mnt" -w /mnt \
             koalaman/shellcheck-alpine:stable \
-            shellcheck render-conf.sh tools/set-password.sh tools/set-inter-account.sh tools/healthcheck.sh tests/set-password.sh tests/e2e-set-password.sh
+            shellcheck render-conf.sh tools/set-password.sh tools/set-inter-account.sh tools/healthcheck.sh tests/set-password.sh tests/e2e-set-password.sh tests/secret-probe.sh tests/clean-stop.sh
 
       - name: The password tool keeps a password that may be in effect
         # Docker can fail under the UPDATE: exit 128 before it ran, 137 maybe
@@ -114,6 +114,12 @@ jobs:
 
     env:
       COMPOSE_PROJECT_NAME: rathena
+      # tests/secret-probe.sh: the database password and its root password get
+      # a value each, and neither may reach docker compose logs (every
+      # service), a command line in any container or the host's ps.
+      PROBE_PROJECT: rathena
+      PROBE_COMPOSE: docker-compose.yml
+      PROBE_EXPECT: RA_DB_PASSWORD RA_DB_ROOT_PASSWORD
 
     steps:
       - name: Checkout repository
@@ -121,11 +127,14 @@ jobs:
 
       - name: Generate test .env with ephemeral credentials
         run: |
-          sed -e "s/^RA_DB_PASSWORD=.*/RA_DB_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)/" \
-              -e "s/^RA_DB_ROOT_PASSWORD=.*/RA_DB_ROOT_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)/" \
-              -e "s/^RA_INTER_PASS=.*/RA_INTER_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 20)/" \
-              -e "s/^RA_PUBLIC_IP=.*/RA_PUBLIC_IP=127.0.0.1/" \
-              .env.example > .env
+          sed -e "s/^RA_PUBLIC_IP=.*/RA_PUBLIC_IP=127.0.0.1/" .env.example > .env
+          # The two database passwords: tests/secret-probe.sh plant writes a
+          # random one each by awk through its environment, never on a command
+          # line, and keeps them for the probe. The inter-server password the
+          # same way, from this shell's environment.
+          tests/secret-probe.sh plant
+          V="$(openssl rand -hex 10)" awk 'BEGIN { v = ENVIRON["V"] } /^RA_INTER_PASS=/ { print "RA_INTER_PASS=" v; next } { print }' .env > .env.new
+          cat .env.new > .env && rm -f .env.new
           echo "Generated ephemeral .env for CI run"
 
       - name: Render the server configuration from .env
@@ -240,7 +249,10 @@ jobs:
         # control.
         run: |
           chmod +x tests/e2e-set-password.sh
-          ./tests/e2e-set-password.sh
+          tests/secret-probe.sh check "first start"
+          # Watched by the probe: every command line in every container and on
+          # the host, sampled while the tool and its checks run.
+          tests/secret-probe.sh during "the password tool" ./tests/e2e-set-password.sh
 
       - name: A new database under the servers' old connections
         # An update that recreates db alone leaves login, char and map on
@@ -256,13 +268,31 @@ jobs:
           fi
           echo "db recreated alone was caught, as it must be"
 
+      - name: After those restarts, the probe looks again; and it sees what it looks for
+        run: |
+          tests/secret-probe.sh check "after a restart"
+          tests/secret-probe.sh selftest
+
+      - name: A stop - timed, with its exit code; the map-server, then the database (tests/clean-stop.sh)
+        # The world of an rAthena server is its database: MariaDB writes it
+        # out on SIGTERM and logs "Shutdown complete". The map-server keeps
+        # nothing of its own on disk.
+        env:
+          CLEAN_STOP_PROJECT: rathena
+          CLEAN_STOP_COMPOSE: docker-compose.yml
+        run: |
+          tests/clean-stop.sh map -
+          tests/clean-stop.sh db "Shutdown complete"
+
       - name: Show container logs on failure
         if: failure()
         run: docker compose logs
 
       - name: Shutdown Docker Compose services
         if: always()
-        run: docker compose down
+        run: |
+          docker compose down
+          rm -f "$RUNNER_TEMP/secret-probe.values"
 
   backup:
     name: The backup, shown a failure as well as a success
