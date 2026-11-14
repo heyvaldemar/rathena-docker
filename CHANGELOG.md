@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.7.4] - 2026-11-14
+
 ### Added
 
 - **CI looks for both database passwords everywhere they could leak to.** `tests/secret-probe.sh` gives `RA_DB_PASSWORD` and `RA_DB_ROOT_PASSWORD` a value each and fails on either in `docker compose logs` of every service, on any command line in any of the containers or in the host's `ps`, after the first start, while the password tool and its checks run, and after the servers are restarted under a new database; it names the variable and the place, never the value. It found nothing ([run 43620468484](https://github.com/heyvaldemar/rathena-docker/actions/runs/43620468484)). The CI step that wrote the passwords into `.env` no longer has them on `sed`'s command line.
@@ -142,7 +146,8 @@ atabase is
   that boots all four services and smoke-tests them, with the schema loaded
   before the servers start.
 
-[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.3...HEAD
+[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.4...HEAD
+[1.7.4]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.0...v1.7.1
