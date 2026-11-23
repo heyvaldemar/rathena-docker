@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`rathena/rathena` moved from `dd073ca` to `4cd08b7`.** 8 upstream commits, none of them touching SQL or a migration, so an existing database needs no upgrade script. The deploy job rebuilt the server from the new commit and booted the stack before this landed.
+
 ### Fixed
 
 - **The secret probe no longer counts a place of blank lines as read.** `collect()` checked that each place (compose logs, command lines, the host's `ps`) was not empty with `-s`, which a file of nothing but line ends passes: a process with an empty command line still ends its line. It now needs one line with something in it, or the probe fails, naming the place. CI only; nothing a deployment runs changes.
