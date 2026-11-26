@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.7.10] - 2026-11-26
+
 ### Changed
 
 - **`rathena/rathena` moved from `3c130bd` to `6b917c1`.** 2 upstream commits, none of them touching SQL or a migration, so an existing database needs no upgrade script. The deploy job rebuilt the server from the new commit and booted the stack before this landed.
@@ -183,7 +187,8 @@ atabase is
   that boots all four services and smoke-tests them, with the schema loaded
   before the servers start.
 
-[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.9...HEAD
+[Unreleased]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.10...HEAD
+[1.7.10]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.9...v1.7.10
 [1.7.9]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.8...v1.7.9
 [1.7.8]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.7...v1.7.8
 [1.7.7]: https://github.com/heyvaldemar/rathena-docker/compare/v1.7.6...v1.7.7
